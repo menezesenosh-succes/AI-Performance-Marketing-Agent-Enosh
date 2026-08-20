@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ezekiel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0A0E14;
+  --panel:#111823;
+  --raise:#161F2C;
+  --line:#1F2A38;
+  --ink:#C9D5E3;
+  --dim:#5F7086;
+  --signal:#F2A63B;
+  --data:#4FD1C5;
+  --alert:#F0736A;
+  --display:'Space Grotesk',system-ui,sans-serif;
+  --body:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--void);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1.55;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(900px 500px at 50% 108%,rgba(242,166,59,.07),transparent 70%);
+}
+.shell{position:relative;z-index:1;display:grid;grid-template-columns:236px 1fr 304px;height:100vh}
+
+/* ---------- shared chrome ---------- */
+.rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.rail--right{border-right:0;border-left:1px solid var(--line)}
+.rail__head{padding:20px 18px 14px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.wordmark{font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.02em;color:#EAF1F8;margin-top:2px}
+.wordmark span{color:var(--signal)}
+.rail__body{flex:1;overflow-y:auto;padding:16px 14px}
+.group+.group{margin-top:24px}
+.group__label{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);padding:0 4px 8px}
+
+.cmd{
+  display:block;width:100%;text-align:left;background:none;border:0;border-radius:6px;
+  color:var(--ink);font-family:var(--body);font-size:13.5px;padding:8px 10px;cursor:pointer;
+  transition:background .12s,color .12s;
+}
+.cmd:hover{background:var(--raise);color:#EAF1F8}
+.cmd:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+
+/* ---------- centre ---------- */
+.stage{display:flex;flex-direction:column;min-height:0;min-width:0}
+.stage__head{display:flex;align-items:center;gap:14px;padding:16px 26px;border-bottom:1px solid var(--line)}
+.status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim);transition:background .2s,box-shadow .2s;flex:none}
+.dot--live{background:var(--data);box-shadow:0 0 0 3px rgba(79,209,197,.16)}
+.dot--busy{background:var(--signal);box-shadow:0 0 0 3px rgba(242,166,59,.16)}
+.dot--down{background:var(--alert);box-shadow:0 0 0 3px rgba(240,115,106,.16)}
+.spacer{flex:1}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;flex:none}
+.seg button{
+  background:none;border:0;color:var(--dim);font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;padding:6px 11px;cursor:pointer;transition:background .12s,color .12s;
+}
+.seg button[aria-pressed="true"]{background:var(--raise);color:var(--signal)}
+
+.transcript{flex:1;overflow-y:auto;padding:28px 26px 8px;display:flex;flex-direction:column;gap:22px}
+.turn{max-width:680px;animation:rise .32s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.turn__who{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.turn--me{margin-left:auto}
+.turn--me .turn__who{text-align:right}
+.turn--me .turn__text{background:var(--raise);border:1px solid var(--line);border-radius:10px 10px 2px 10px;padding:11px 15px}
+.turn--ez .turn__who{color:var(--signal)}
+.turn--ez .turn__text{border-left:2px solid var(--signal);padding-left:15px}
+.turn__text{white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere}
+.turn--err .turn__who{color:var(--alert)}
+.turn--err .turn__text{border-left:2px solid var(--alert);padding-left:15px;color:#E9B4B0}
+.turn--sys .turn__who{color:var(--data)}
+.turn--sys .turn__text{border-left:2px solid var(--data);padding-left:15px;color:var(--dim)}
+
+/* markdown inside a reply — flash returns real markdown in chat and report */
+.turn__text strong{color:#EAF1F8;font-weight:600}
+.turn__text em{color:#DCE6F1;font-style:italic}
+.turn__text code{
+  font-family:var(--mono);font-size:.87em;background:var(--raise);border:1px solid var(--line);
+  border-radius:4px;padding:1px 5px;color:var(--data);
+}
+.turn__text .md-h{
+  display:block;font-family:var(--display);font-weight:500;font-size:1.02em;color:#EAF1F8;
+  margin:14px 0 4px;letter-spacing:.01em;
+}
+.turn__text .md-h:first-child{margin-top:0}
+.turn__text .md-rule{display:block;height:1px;background:var(--line);margin:14px 0;border:0}
+
+.empty{margin:auto;text-align:center;max-width:400px;padding-bottom:40px}
+.empty h2{font-family:var(--display);font-weight:500;font-size:19px;color:#EAF1F8;margin-bottom:8px}
+.empty p{color:var(--dim);font-size:14px}
+
+/* ---------- signature: the voice ring ---------- */
+.console{padding:6px 26px 26px;display:flex;align-items:center;gap:18px}
+.ring{position:relative;width:96px;height:96px;flex:none}
+.ring canvas{position:absolute;inset:0;width:96px;height:96px}
+.mic{
+  position:absolute;inset:22px;border-radius:50%;border:1px solid var(--line);
+  background:var(--raise);color:var(--dim);cursor:pointer;
+  display:grid;place-items:center;transition:color .18s,border-color .18s,background .18s;
+}
+.mic:hover{color:var(--ink);border-color:var(--dim)}
+.mic[data-state="listening"]{color:var(--signal);border-color:var(--signal);background:rgba(242,166,59,.08)}
+.mic[data-state="speaking"]{color:var(--data);border-color:var(--data);background:rgba(79,209,197,.08)}
+.mic:disabled{opacity:.4;cursor:not-allowed}
+.mic svg{width:20px;height:20px}
+
+.entry{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0}
+.entry__field{display:flex;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.entry__field:focus-within{border-color:var(--dim)}
+textarea{
+  flex:1;background:none;border:0;resize:none;color:var(--ink);font-family:var(--body);font-size:15px;
+  line-height:1.5;max-height:120px;min-width:0;
+}
+textarea:focus{outline:none}
+textarea::placeholder{color:var(--dim)}
+.send{
+  background:var(--signal);border:0;border-radius:6px;color:#0A0E14;font-family:var(--display);font-weight:500;
+  font-size:13px;padding:7px 15px;cursor:pointer;transition:opacity .12s;flex:none;
+}
+.send:hover{opacity:.86}
+.send:disabled{opacity:.35;cursor:not-allowed}
+.stop{
+  background:none;border:1px solid var(--line);border-radius:6px;color:var(--dim);
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 9px;cursor:pointer;display:none;
+}
+.stop.on{display:inline-block}
+.stop:hover{color:var(--ink);border-color:var(--dim)}
+.hint{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--dim);padding-left:2px;display:flex;align-items:center;gap:10px}
+kbd{font-family:var(--mono);background:var(--raise);border:1px solid var(--line);border-radius:3px;padding:1px 5px;font-size:10px}
+
+/* ---------- right rail ---------- */
+.metric{padding:12px 4px;border-bottom:1px solid var(--line)}
+.metric:last-child{border-bottom:0}
+.metric__k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.metric__v{font-family:var(--display);font-size:17px;font-weight:500;color:#EAF1F8;margin-top:3px}
+.metric__v--data{color:var(--data)}
+.metric__v--signal{color:var(--signal)}
+.metric__v--alert{color:var(--alert)}
+.metric__v--muted{color:var(--dim);font-size:14px;font-weight:400}
+.metric__note{font-size:13px;color:var(--ink);margin-top:4px;font-family:var(--body)}
+
+.pending{margin-top:20px;border:1px solid var(--line);border-radius:8px;padding:12px 13px;background:var(--panel)}
+.pending h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:400;margin-bottom:8px}
+.pending li{list-style:none;font-size:12.5px;color:var(--dim);padding:3px 0;display:flex;gap:8px}
+.pending li::before{content:'○';color:var(--line)}
+.pending li.on{color:var(--ink)}
+.pending li.on::before{content:'●';color:var(--data)}
+
+.endpointTag{margin-top:16px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--dim);word-break:break-all;line-height:1.7}
+.endpointTag b{color:var(--data);font-weight:400}
+
+/* ---------- settings ---------- */
+.gear{background:none;border:0;color:var(--dim);cursor:pointer;padding:4px;border-radius:5px;flex:none}
+.gear:hover{color:var(--ink);background:var(--raise)}
+.sheet{position:fixed;inset:0;background:rgba(5,8,12,.72);display:none;place-items:center;z-index:20;padding:20px}
+.sheet[open]{display:grid}
+.sheet__card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;width:min(460px,100%)}
+.sheet__card h3{font-family:var(--display);font-weight:500;font-size:17px;color:#EAF1F8;margin-bottom:4px}
+.sheet__card p{font-size:13px;color:var(--dim);margin-bottom:16px}
+label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+input[type=text]{
+  width:100%;background:var(--void);border:1px solid var(--line);border-radius:7px;padding:9px 11px;
+  color:var(--ink);font-family:var(--mono);font-size:12.5px;
+}
+.field+.field{margin-top:14px}
+.sheet__foot{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}
+.btn{background:var(--raise);border:1px solid var(--line);border-radius:6px;color:var(--ink);font-family:var(--body);font-size:13px;padding:7px 14px;cursor:pointer}
+.btn--go{background:var(--signal);border-color:var(--signal);color:#0A0E14;font-weight:500}
+
+/* ---------- passcode gate ---------- */
+.gate{position:fixed;inset:0;z-index:40;background:var(--void);display:grid;place-items:center;padding:24px}
+.gate[hidden]{display:none}
+.gate__card{width:min(360px,100%);text-align:center}
+.gate__mark{font-family:var(--display);font-weight:700;font-size:30px;letter-spacing:.02em;color:#EAF1F8}
+.gate__mark span{color:var(--signal)}
+.gate__sub{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin:6px 0 26px}
+.gate input{
+  width:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+  color:var(--ink);font-family:var(--mono);font-size:14px;letter-spacing:.3em;text-align:center;
+}
+.gate input:focus{outline:none;border-color:var(--signal)}
+.gate button{
+  width:100%;margin-top:10px;background:var(--signal);border:0;border-radius:8px;color:#0A0E14;
+  font-family:var(--display);font-weight:500;font-size:14px;padding:11px;cursor:pointer;
+}
+.gate__err{color:var(--alert);font-size:12.5px;margin-top:12px;min-height:18px}
+
+::-webkit-scrollbar{width:9px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+::-webkit-scrollbar-track{background:transparent}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:1180px){
+  .shell{grid-template-columns:1fr}
+  .rail{display:none}
+  .stage__head{padding:14px 16px;gap:10px;flex-wrap:wrap}
+  .transcript{padding:20px 16px 8px}
+  .console{padding:6px 16px 18px;gap:12px}
+  .ring,.ring canvas{width:76px;height:76px}
+  .mic{inset:17px}
+}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <div class="gate__card">
+    <div class="gate__mark">EZEKIEL<span>.</span></div>
+    <div class="gate__sub">Private &mdash; passcode required</div>
+    <input type="password" id="pass" autocomplete="current-password" aria-label="Passcode">
+    <button id="enter">Unlock</button>
+    <div class="gate__err" id="gateErr"></div>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- LEFT -->
+  <aside class="rail">
+    <div class="rail__head">
+      <div class="eyebrow">Performance Marketing</div>
+      <div class="wordmark">EZEKIEL<span>.</span></div>
+    </div>
+    <div class="rail__body">
+      <div class="group">
+        <div class="group__label">Session</div>
+        <button class="cmd" id="newSession">Start a new session</button>
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--dim);padding:6px 10px" id="sessionTag">romin-main</div>
+      </div>
+      <div class="group">
+        <div class="group__label">Ask Ezekiel</div>
+        <button class="cmd" data-say="Good morning Ezekiel. What matters today?">Morning brief</button>
+        <button class="cmd" data-say="What is the single biggest marketing opportunity in front of us right now, and what would you do first?">Biggest opportunity</button>
+        <button class="cmd" data-say="Build me a Google Ads campaign structure for Sysgrate's Zoom Webinar integration service targeting mid-market IT leaders in Singapore.">Draft a campaign</button>
+        <button class="cmd" data-say="Give me five LinkedIn ad concepts for Sysgrate contact centre solutions. For each: hook, angle, audience, message, CTA, hypothesis, success metric.">Creative concepts</button>
+        <button class="cmd" data-say="Our CPL went up last week. Walk me through how you would diagnose it, and tell me exactly what data you need from me.">Diagnose rising CPL</button>
+        <button class="cmd" data-say="What did we decide previously? Recall everything you have in long-term memory.">Recall memory</button>
+      </div>
+      <div class="group">
+        <div class="group__label">Teach it</div>
+        <button class="cmd" data-say="I am going to give you our business context. Save each of these to long-term memory. Ask me for anything important I leave out.">Load business context</button>
+        <button class="cmd" data-say="From now on keep answers shorter unless I ask for detail. Remember that.">Ask for shorter answers</button>
+        <button class="cmd" data-say="Give me that again as a full report.">Expand into a report</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTRE -->
+  <main class="stage">
+    <header class="stage__head">
+      <div class="status"><span class="dot" id="dot"></span><span id="statusText">Ready</span></div>
+      <div class="spacer"></div>
+      <div class="seg" role="group" aria-label="Response length">
+        <button data-mode="voice" aria-pressed="true">Voice</button>
+        <button data-mode="chat" aria-pressed="false">Chat</button>
+        <button data-mode="report" aria-pressed="false">Report</button>
+      </div>
+      <div class="seg" role="group" aria-label="Webhook environment">
+        <button data-env="live" aria-pressed="true">Live</button>
+        <button data-env="test" aria-pressed="false">Test</button>
+      </div>
+      <button class="gear" id="openSettings" aria-label="Connection settings" title="Connection settings">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </header>
+
+    <div class="transcript" id="transcript">
+      <div class="empty" id="empty">
+        <h2>Say &ldquo;Good morning Ezekiel&rdquo;</h2>
+        <p>Hold the mic, or hold <kbd>Space</kbd> anywhere outside the text box. Voice answers stay under sixty words &mdash; switch to Report when you want the full picture.</p>
+      </div>
+    </div>
+
+    <div class="console">
+      <div class="ring">
+        <canvas id="wave" width="192" height="192"></canvas>
+        <button class="mic" id="mic" data-state="idle" aria-label="Talk to Ezekiel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+        </button>
+      </div>
+      <div class="entry">
+        <div class="entry__field">
+          <textarea id="input" rows="1" placeholder="Type instead&hellip;"></textarea>
+          <button class="send" id="send">Send</button>
+        </div>
+        <div class="hint">
+          <span id="hintText">HOLD SPACE TO TALK &nbsp;·&nbsp; ENTER TO SEND</span>
+          <button class="stop" id="stopSpeak">Stop speaking</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT -->
+  <aside class="rail rail--right">
+    <div class="rail__head">
+      <div class="eyebrow">Live intelligence</div>
+      <div class="wordmark" style="font-size:15px;letter-spacing:.06em">READOUT</div>
+    </div>
+    <div class="rail__body">
+      <div class="metric"><div class="metric__k">Confidence</div><div class="metric__v metric__v--muted" id="mConf">&mdash;</div></div>
+      <div class="metric"><div class="metric__k">Approval</div><div class="metric__v metric__v--muted" id="mAppr">&mdash;</div></div>
+      <div class="metric"><div class="metric__k">Next action</div><div class="metric__note" id="mNext" style="color:var(--dim)">Nothing queued.</div></div>
+      <div class="metric"><div class="metric__k">Response time</div><div class="metric__v metric__v--muted" id="mLat">&mdash;</div></div>
+      <div class="metric"><div class="metric__k">Turns this session</div><div class="metric__v metric__v--muted" id="mTurns">0</div></div>
+
+      <div class="pending">
+        <h4>Data sources</h4>
+        <ul>
+          <li class="on">Long-term memory</li>
+          <li class="on">Session memory</li>
+          <li class="on">Audit log</li>
+          <li>Google Ads</li>
+          <li>Meta &amp; LinkedIn Ads</li>
+          <li>GA4</li>
+          <li>CRM</li>
+          <li>Web research</li>
+        </ul>
+      </div>
+
+      <div class="endpointTag" id="endpointTag"></div>
+    </div>
+  </aside>
+</div>
+
+<!-- SETTINGS -->
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Connection settings">
+  <div class="sheet__card">
+    <h3>Connection</h3>
+    <p>The n8n address and shared key live in your Vercel environment variables, not in this page. Change them in the Vercel dashboard and redeploy.</p>
+    <div class="field">
+      <label for="sessIn">Session ID</label>
+      <input type="text" id="sessIn" spellcheck="false">
+    </div>
+    <div class="sheet__foot">
+      <button class="btn" id="closeSettings">Cancel</button>
+      <button class="btn btn--go" id="saveSettings">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   EZEKIEL CONSOLE — v3-vercel
+   Deployed build. The browser never sees the n8n address or
+   the shared secret; it posts to /api/ezekiel and the Vercel
+   serverless function forwards to n8n with the header key.
+
+   Response contract confirmed from the live workflow:
+     { reply, sessionId, mode, requestId, respondedAt }
+
+   Changed from v2, all driven by the flash model swap:
+   - Footer extraction hardened. Flash wraps or truncates the
+     <<EZ>> line more often than pro did, so several shapes are
+     accepted and anything left over is scrubbed from the text.
+   - Markdown is rendered in the transcript instead of shown raw,
+     because flash returns real markdown in chat and report.
+   - Speech strips markdown so nothing is read as "asterisk".
+   - Missing footer shows "Not reported" rather than a dead panel.
+   - Stop speaking control, since flash replies arrive fast and
+     you will want to cut it off mid-sentence.
+   ============================================================ */
+
+const CONFIG = {
+  proxy:   '/api/ezekiel',   // Vercel function; n8n URL lives in env vars
+  session: 'romin-main',
+  env:     'live',           // forwarded to the proxy, which picks the n8n path
+  mode:    'voice',
+  model:   'models/gemini-3.6-flash'
+};
+
+let PASSCODE = '';
+
+const $ = function(id){ return document.getElementById(id); };
+const els = {
+  transcript:$('transcript'), empty:$('empty'), input:$('input'), send:$('send'),
+  mic:$('mic'), dot:$('dot'), statusText:$('statusText'), hintText:$('hintText'),
+  stopSpeak:$('stopSpeak'), sessionTag:$('sessionTag'), sheet:$('sheet'), wave:$('wave'),
+  endpointTag:$('endpointTag'),
+  mConf:$('mConf'), mAppr:$('mAppr'), mNext:$('mNext'), mLat:$('mLat'), mTurns:$('mTurns')
+};
+
+let turns = 0;
+let busy  = false;
+
+function endpoint(){ return CONFIG.proxy; }
+
+function paintEndpoint(){
+  els.endpointTag.innerHTML = '';
+  const a = document.createElement('div');
+  a.innerHTML = '<b>' + (CONFIG.env === 'live' ? 'LIVE' : 'TEST') + '</b>';
+  const b = document.createElement('div');
+  b.textContent = location.host + CONFIG.proxy;
+  const c = document.createElement('div');
+  c.textContent = CONFIG.model;
+  c.style.marginTop = '6px';
+  els.endpointTag.appendChild(a);
+  els.endpointTag.appendChild(b);
+  els.endpointTag.appendChild(c);
+}
+
+function setStatus(text, kind){
+  els.statusText.textContent = text;
+  els.dot.className = 'dot' + (kind ? ' dot--' + kind : '');
+}
+
+/* ---------- markdown ----------
+   Escape first, then apply a small, deliberate subset.
+   Nothing from the model ever reaches innerHTML unescaped. */
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderMarkdown(raw){
+  let s = escapeHtml(raw);
+
+  // fenced blocks -> inline code, keeping the contents
+  s = s.replace(/```[a-zA-Z]*\n?([\s\S]*?)```/g, function(_, body){
+    return '<code>' + body.trim() + '</code>';
+  });
+
+  const lines = s.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++){
+    let ln = lines[i];
+
+    if (/^\s*(\*\s*){3,}$/.test(ln) || /^\s*-{3,}\s*$/.test(ln) || /^\s*_{3,}\s*$/.test(ln)){
+      out.push('<hr class="md-rule">');
+      continue;
+    }
+    const head = ln.match(/^\s{0,3}#{1,4}\s+(.*)$/);
+    if (head){
+      out.push('<span class="md-h">' + inline(head[1]) + '</span>');
+      continue;
+    }
+    ln = ln.replace(/^(\s*)[-*+]\s+/, '$1•  ');
+    out.push(inline(ln));
+  }
+  return out.join('\n');
+}
+
+function inline(s){
+  return s
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/__([^_\n]+)__/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:!?]|$)/g, '$1<em>$2</em>');
+}
+
+/* ---------- speech-safe text ---------- */
+function forSpeech(raw){
+  return raw
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s*/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/^\s*[-_*]{3,}\s*$/gm, '')
+    .replace(/\|/g, ' ')
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/* ---------- transcript ---------- */
+function addTurn(who, text, variant){
+  if (els.empty){ els.empty.remove(); els.empty = null; }
+  const wrap = document.createElement('div');
+  wrap.className = 'turn turn--' + variant;
+
+  const label = document.createElement('div');
+  label.className = 'turn__who';
+  label.textContent = who;
+
+  const body = document.createElement('div');
+  body.className = 'turn__text';
+  if (variant === 'ez') body.innerHTML = renderMarkdown(text);
+  else body.textContent = text;
+
+  wrap.appendChild(label);
+  wrap.appendChild(body);
+  els.transcript.appendChild(wrap);
+  els.transcript.scrollTop = els.transcript.scrollHeight;
+}
+
+/* ---------- reply extraction ---------- */
+const REPLY_KEYS = ['reply','output','text','message','response','answer','result','content'];
+const WRAP_KEYS  = ['json','body','data','item','items'];
+
+function extractReply(payload, depth){
+  const d = depth || 0;
+  if (payload == null || d > 5) return '';
+  if (typeof payload === 'string') return payload;
+  if (Array.isArray(payload)){
+    for (let i = 0; i < payload.length; i++){
+      const hit = extractReply(payload[i], d + 1);
+      if (hit) return hit;
+    }
+    return '';
+  }
+  if (typeof payload === 'object'){
+    for (let i = 0; i < REPLY_KEYS.length; i++){
+      const v = payload[REPLY_KEYS[i]];
+      if (typeof v === 'string' && v.trim()) return v;
+    }
+    for (let i = 0; i < WRAP_KEYS.length; i++){
+      if (payload[WRAP_KEYS[i]] != null){
+        const hit = extractReply(payload[WRAP_KEYS[i]], d + 1);
+        if (hit) return hit;
+      }
+    }
+  }
+  return '';
+}
+
+function firstObject(payload, depth){
+  const d = depth || 0;
+  if (payload == null || d > 5 || typeof payload !== 'object') return null;
+  if (Array.isArray(payload)) return payload.length ? firstObject(payload[0], d + 1) : null;
+  if (payload.json) return firstObject(payload.json, d + 1);
+  return payload;
+}
+
+/* ---------- footer ----------
+   Target shape:
+     <<EZ>>{"confidence":"HIGH",...}<</EZ>>
+   Flash also produces: a code-fenced version, a missing closing
+   tag, or the JSON alone on the last line. All three are accepted,
+   and any stray tag is scrubbed so it never reaches the screen. */
+function splitFooter(raw){
+  let text = raw;
+  let meta = null;
+
+  const patterns = [
+    /<<EZ>>\s*([\s\S]*?)\s*<<\/?EZ>>/,
+    /<<EZ>>\s*([\s\S]*?)\s*$/,
+    /```(?:json)?\s*(\{[^{}]*"confidence"[\s\S]*?\})\s*```/,
+    /(\{[^{}]*"confidence"\s*:[\s\S]*?\})\s*$/
+  ];
+
+  for (let i = 0; i < patterns.length; i++){
+    const m = text.match(patterns[i]);
+    if (!m) continue;
+    let candidate = m[1].replace(/^```(?:json)?/,'').replace(/```$/,'').trim();
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object'){
+        meta = parsed;
+        text = text.replace(m[0], '');
+        break;
+      }
+    } catch (e) { /* try the next shape */ }
+  }
+
+  text = text.replace(/<<\/?EZ>>/g, '').trim();
+  return { text: text, meta: meta };
+}
+
+function paintReadout(meta, ms){
+  els.mLat.textContent = (ms/1000).toFixed(1) + 's';
+  els.mLat.className = 'metric__v';
+  els.mTurns.textContent = String(turns);
+  els.mTurns.className = 'metric__v';
+
+  if (!meta){
+    els.mConf.textContent = 'Not reported';
+    els.mConf.className = 'metric__v metric__v--muted';
+    els.mAppr.textContent = 'Not reported';
+    els.mAppr.className = 'metric__v metric__v--muted';
+    els.mNext.textContent = 'Ezekiel did not send the readout line this turn.';
+    els.mNext.style.color = 'var(--dim)';
+    return;
+  }
+
+  const conf = String(meta.confidence || '').toUpperCase();
+  els.mConf.textContent = conf || 'Not reported';
+  els.mConf.className = 'metric__v ' + (
+    conf === 'HIGH' ? 'metric__v--data' :
+    conf === 'LOW'  ? 'metric__v--alert' :
+    conf ? 'metric__v--signal' : 'metric__v--muted'
+  );
+
+  const needs = meta.approval_required === true || meta.approval_required === 'true';
+  els.mAppr.textContent = needs ? 'Waiting on you' : 'Not needed';
+  els.mAppr.className = 'metric__v ' + (needs ? 'metric__v--alert' : 'metric__v--muted');
+
+  els.mNext.textContent = meta.next_action || 'Nothing queued.';
+  els.mNext.style.color = meta.next_action ? 'var(--ink)' : 'var(--dim)';
+}
+
+/* ---------- speech out ---------- */
+let voice = null;
+function pickVoice(){
+  const all = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  const want = ['Google UK English Male','Daniel','Microsoft Guy Online','Google US English','Microsoft David'];
+  for (let i = 0; i < want.length; i++){
+    const hit = all.find(function(v){ return v.name.indexOf(want[i]) !== -1; });
+    if (hit){ voice = hit; return; }
+  }
+  voice = all.find(function(v){ return v.lang.indexOf('en') === 0; }) || null;
+}
+if (window.speechSynthesis){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+function speak(text){
+  if (!window.speechSynthesis) return;
+  const clean = forSpeech(text);
+  if (!clean) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(clean.slice(0, 1400));
+  if (voice) u.voice = voice;
+  u.rate = 1.02; u.pitch = 0.92;
+  u.onstart = function(){ setMic('speaking'); setStatus('Speaking', 'live'); els.stopSpeak.classList.add('on'); };
+  u.onend   = function(){ setMic('idle'); setStatus('Ready', 'live'); els.stopSpeak.classList.remove('on'); };
+  u.onerror = function(){ setMic('idle'); setStatus('Ready'); els.stopSpeak.classList.remove('on'); };
+  speechSynthesis.speak(u);
+}
+
+function hush(){
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  setMic('idle');
+  els.stopSpeak.classList.remove('on');
+  setStatus('Ready', 'live');
+}
+
+/* ---------- the request ---------- */
+async function callEzekiel(message, env){
+  const res = await fetch(CONFIG.proxy, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-ezekiel-pass': PASSCODE },
+    body: JSON.stringify({
+      message: message,
+      sessionId: CONFIG.session,
+      mode: CONFIG.mode,
+      env: env || CONFIG.env
+    })
+  });
+
+  const bodyText = await res.text();
+  let parsed;
+  try { parsed = JSON.parse(bodyText); } catch (e) { parsed = bodyText; }
+
+  if (!res.ok){
+    const err = new Error(res.status + ' ' + res.statusText);
+    err.status = res.status;
+    err.payload = parsed;
+    throw err;
+  }
+  return parsed;
+}
+
+async function ask(message){
+  if (busy || !message || !message.trim()) return;
+  busy = true;
+  els.send.disabled = true;
+  turns++;
+  addTurn('Romin', message, 'me');
+  setStatus('Thinking', 'busy');
+
+  const started = performance.now();
+
+  try {
+    let payload;
+    try {
+      payload = await callEzekiel(message, CONFIG.env);
+    } catch (first) {
+      if (first.status === 404){
+        const other = CONFIG.env === 'live' ? 'test' : 'live';
+        payload = await callEzekiel(message, other);
+        CONFIG.env = other;
+        document.querySelectorAll('[data-env]').forEach(function(x){
+          x.setAttribute('aria-pressed', String(x.dataset.env === other));
+        });
+        paintEndpoint();
+        addTurn('Console', 'The ' + (other === 'live' ? 'Live' : 'Test') + ' endpoint answered instead — switched to it for the rest of this session.', 'sys');
+      } else {
+        throw first;
+      }
+    }
+
+    const raw = extractReply(payload);
+    if (!raw){
+      throw new Error('The workflow ran but returned no reply text. Check that Respond to Console is passing the Shape Reply item through.');
+    }
+
+    const parts = splitFooter(raw);
+    const top   = firstObject(payload) || {};
+    const meta  = parts.meta || ((top.confidence || top.approval_required || top.next_action) ? top : null);
+
+    addTurn('Ezekiel', parts.text, 'ez');
+    paintReadout(meta, performance.now() - started);
+
+    if (CONFIG.mode === 'voice') speak(parts.text);
+    else setStatus('Ready', 'live');
+
+  } catch (err) {
+    let msg;
+    if (err.name === 'TypeError'){
+      msg = 'Could not reach the Ezekiel proxy. Check you are online; if this persists the Vercel function may be failing.';
+    } else if (err.status === 404){
+      msg = 'The proxy could not find the workflow on either endpoint. Confirm N8N_WEBHOOK_PATH in your Vercel environment variables matches the Webhook node path in n8n.';
+    } else if (err.status === 500){
+      msg = 'The workflow ran and failed. Open the execution in n8n — with ' + CONFIG.model + ' the usual causes are a token limit on a long report, or the agent hitting max iterations.';
+    } else if (err.status === 401){
+      msg = 'Passcode rejected. Reload and enter the value you set as EZEKIEL_PASSCODE in Vercel.';
+      PASSCODE = '';
+      gate.removeAttribute('hidden');
+    } else if (err.status === 502){
+      msg = 'The proxy reached Vercel but could not reach n8n. Check N8N_BASE_URL in your Vercel environment variables.';
+    } else if (err.status){
+      msg = 'The proxy returned ' + err.message + '.';
+    } else {
+      msg = err.message;
+    }
+    addTurn('Connection', msg, 'err');
+    setStatus('Not connected', 'down');
+  } finally {
+    busy = false;
+    els.send.disabled = false;
+  }
+}
+
+/* ---------- speech in ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null, listening = false, heard = '';
+
+function setMic(state){ els.mic.dataset.state = state; }
+
+if (SR){
+  recog = new SR();
+  recog.lang = 'en-IN';
+  recog.continuous = false;
+  recog.interimResults = true;
+  recog.onresult = function(e){
+    let t = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+    heard = t;
+    els.input.value = t;
+  };
+  recog.onerror = function(e){
+    listening = false; setMic('idle');
+    setStatus(e.error === 'not-allowed' ? 'Microphone blocked' : 'Did not catch that', e.error === 'not-allowed' ? 'down' : null);
+  };
+  recog.onend = function(){
+    listening = false; setMic('idle');
+    if (heard.trim()){ const t = heard; heard = ''; els.input.value = ''; ask(t); }
+    else setStatus('Ready');
+  };
+} else {
+  els.mic.disabled = true;
+  els.hintText.textContent = 'VOICE INPUT NEEDS CHROME OR EDGE — TYPING WORKS EVERYWHERE';
+}
+
+function startListening(){
+  if (!recog || listening || busy) return;
+  heard = ''; listening = true;
+  setMic('listening'); setStatus('Listening', 'busy');
+  hush();
+  setMic('listening');
+  startMeter();
+  try { recog.start(); } catch (e) { listening = false; setMic('idle'); }
+}
+function stopListening(){ if (recog && listening) recog.stop(); }
+
+/* ---------- signature: the ring ---------- */
+const ctx2d = els.wave.getContext('2d');
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+let audioCtx = null, analyser = null, micStream = null, bins = null, phase = 0;
+
+function sizeCanvas(){
+  const box = els.wave.getBoundingClientRect();
+  if (!box.width) return;
+  els.wave.width  = box.width  * DPR;
+  els.wave.height = box.height * DPR;
+}
+sizeCanvas();
+window.addEventListener('resize', sizeCanvas);
+
+async function startMeter(){
+  if (analyser) return;
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    audioCtx.createMediaStreamSource(micStream).connect(analyser);
+    bins = new Uint8Array(analyser.frequencyBinCount);
+  } catch (e) { analyser = null; }
+}
+
+function draw(){
+  const w = els.wave.width, h = els.wave.height, cx = w/2, cy = h/2;
+  const base = Math.min(w, h) * 0.30;
+  const state = els.mic.dataset.state;
+  ctx2d.clearRect(0, 0, w, h);
+
+  let level = 0;
+  if (state === 'listening' && analyser){
+    analyser.getByteFrequencyData(bins);
+    let sum = 0;
+    for (let i = 0; i < bins.length; i++) sum += bins[i];
+    level = (sum / bins.length) / 255;
+  } else if (state !== 'idle'){
+    level = 0.28 + Math.sin(phase * 2.3) * 0.14;
+  }
+
+  const colour = state === 'listening' ? '242,166,59' : state === 'speaking' ? '79,209,197' : '95,112,134';
+
+  for (let ring = 0; ring < 3; ring++){
+    ctx2d.beginPath();
+    for (let a = 0; a <= 360; a += 3){
+      const rad = a * Math.PI / 180;
+      const wob = Math.sin(rad * (3 + ring) + phase * (1.1 + ring * 0.35));
+      const r = base + base * (0.10 + level * 0.62) * wob + ring * base * 0.13;
+      const x = cx + Math.cos(rad) * r;
+      const y = cy + Math.sin(rad) * r;
+      a === 0 ? ctx2d.moveTo(x, y) : ctx2d.lineTo(x, y);
+    }
+    ctx2d.closePath();
+    ctx2d.strokeStyle = 'rgba(' + colour + ',' + (0.42 - ring * 0.11) + ')';
+    ctx2d.lineWidth = DPR;
+    ctx2d.stroke();
+  }
+
+  phase += state === 'idle' ? 0.006 : 0.045;
+  requestAnimationFrame(draw);
+}
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) draw();
+else els.wave.style.display = 'none';
+
+/* ---------- wiring ---------- */
+function submit(){
+  const t = els.input.value;
+  els.input.value = '';
+  autoGrow();
+  ask(t);
+}
+function autoGrow(){
+  els.input.style.height = 'auto';
+  els.input.style.height = Math.min(els.input.scrollHeight, 120) + 'px';
+}
+
+els.send.addEventListener('click', submit);
+els.input.addEventListener('input', autoGrow);
+els.input.addEventListener('keydown', function(e){
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); submit(); }
+});
+els.stopSpeak.addEventListener('click', hush);
+
+els.mic.addEventListener('mousedown', startListening);
+els.mic.addEventListener('mouseup', stopListening);
+els.mic.addEventListener('mouseleave', stopListening);
+els.mic.addEventListener('touchstart', function(e){ e.preventDefault(); startListening(); }, { passive:false });
+els.mic.addEventListener('touchend',   function(e){ e.preventDefault(); stopListening();  }, { passive:false });
+
+let spaceDown = false;
+document.addEventListener('keydown', function(e){
+  if (e.code === 'Space' && !spaceDown && document.activeElement !== els.input && !els.sheet.hasAttribute('open')){
+    e.preventDefault(); spaceDown = true; startListening();
+  }
+  if (e.key === 'Escape'){
+    if (els.sheet.hasAttribute('open')) els.sheet.removeAttribute('open');
+    else hush();
+  }
+});
+document.addEventListener('keyup', function(e){
+  if (e.code === 'Space' && spaceDown){ spaceDown = false; stopListening(); }
+});
+
+document.querySelectorAll('[data-say]').forEach(function(b){
+  b.addEventListener('click', function(){ ask(b.dataset.say); });
+});
+
+document.querySelectorAll('[data-mode]').forEach(function(b){
+  b.addEventListener('click', function(){
+    CONFIG.mode = b.dataset.mode;
+    document.querySelectorAll('[data-mode]').forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
+    if (CONFIG.mode !== 'voice') hush();
+  });
+});
+document.querySelectorAll('[data-env]').forEach(function(b){
+  b.addEventListener('click', function(){
+    CONFIG.env = b.dataset.env;
+    document.querySelectorAll('[data-env]').forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
+    paintEndpoint();
+    setStatus(CONFIG.env === 'live' ? 'Live endpoint' : 'Test endpoint');
+  });
+});
+
+$('newSession').addEventListener('click', function(){
+  hush();
+  CONFIG.session = 'romin-' + Date.now().toString(36);
+  els.sessionTag.textContent = CONFIG.session;
+  els.transcript.innerHTML = '';
+  els.empty = null;
+  turns = 0;
+  els.mTurns.textContent = '0'; els.mTurns.className = 'metric__v metric__v--muted';
+  els.mConf.textContent = '—';  els.mConf.className  = 'metric__v metric__v--muted';
+  els.mAppr.textContent = '—';  els.mAppr.className  = 'metric__v metric__v--muted';
+  els.mLat.textContent  = '—';  els.mLat.className   = 'metric__v metric__v--muted';
+  els.mNext.textContent = 'Nothing queued.'; els.mNext.style.color = 'var(--dim)';
+  addTurn('Console', 'New session. Ezekiel keeps long-term memory but starts this conversation fresh.', 'sys');
+  setStatus('Ready');
+});
+
+$('openSettings').addEventListener('click', function(){
+  $('sessIn').value  = CONFIG.session;
+  els.sheet.setAttribute('open','');
+  $('sessIn').focus();
+});
+$('closeSettings').addEventListener('click', function(){ els.sheet.removeAttribute('open'); });
+$('saveSettings').addEventListener('click', function(){
+  CONFIG.session = $('sessIn').value.trim() || CONFIG.session;
+  els.sessionTag.textContent = CONFIG.session;
+  els.sheet.removeAttribute('open');
+  paintEndpoint();
+  setStatus('Ready');
+});
+
+/* ---------- passcode gate ----------
+   Not a security boundary on its own — it stops drive-by traffic.
+   The real protection is that the n8n key never leaves the server. */
+const gate = $('gate');
+function unlock(){
+  const v = $('pass').value.trim();
+  if (!v){ $('gateErr').textContent = 'Enter the passcode.'; return; }
+  PASSCODE = v;
+  $('pass').value = '';
+  $('gateErr').textContent = '';
+  gate.setAttribute('hidden','');
+  els.input.focus();
+}
+$('enter').addEventListener('click', unlock);
+$('pass').addEventListener('keydown', function(e){ if (e.key === 'Enter') unlock(); });
+
+els.sessionTag.textContent = CONFIG.session;
+paintEndpoint();
+setStatus('Ready');
+$('pass').focus();
+</script>
+</body>
+</html>
